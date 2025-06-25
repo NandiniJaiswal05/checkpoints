@@ -4,29 +4,23 @@ import torchvision.transforms as transforms
 from PIL import Image
 import os
 import requests
+import gdown
 
 @st.cache_resource
 def load_generator():
-    url = "https://huggingface.co/nandinijaiswal05/Satellite_to_roadmap/resolve/main/checkpoints.pth"
+    file_id = "13RiUDLFkhGtO6g1KDS0bdcCMHlSDeY_g"
+    url = f"https://drive.google.com/uc?id={file_id}"
     output = "checkpoints.pth"
 
-    # Download from Hugging Face if not already present
     if not os.path.exists(output):
-        st.info("📥 Downloading model from Hugging Face...")
-        headers = {"User-Agent": "Mozilla/5.0"}
+        st.info("📥 Downloading model from Google Drive...")
         try:
-            with requests.get(url, headers=headers, stream=True) as r:
-                if r.status_code != 200 or "html" in r.headers.get("Content-Type", ""):
-                    st.error("❌ File download failed or is not a valid .pth file.")
-                    st.stop()
-                with open(output, "wb") as f:
-                    for chunk in r.iter_content(chunk_size=8192):
-                        f.write(chunk)
+            gdown.download(url, output, quiet=False)
         except Exception as e:
-            st.error(f"❌ Download failed: {e}")
+            st.error(f"❌ Failed to download model: {e}")
             st.stop()
 
-    # Load U-Net model architecture
+    # Load model architecture
     try:
         model = torch.hub.load(
             'mateuszbuda/brain-segmentation-pytorch',
@@ -38,13 +32,13 @@ def load_generator():
             trust_repo=True
         )
     except Exception as e:
-        st.error(f"❌ Failed to load U-Net architecture: {e}")
+        st.error(f"❌ Failed to load model architecture: {e}")
         st.stop()
 
-    # Load model weights
+    # Load weights
     try:
         checkpoint = torch.load(output, map_location='cpu')
-        model.load_state_dict(checkpoint)  # ✅ Using plain state_dict
+        model.load_state_dict(checkpoint)  # Assuming it's saved using model.state_dict()
         model.eval()
     except Exception as e:
         st.error(f"❌ Failed to load model weights: {e}")
