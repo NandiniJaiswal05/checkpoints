@@ -13,7 +13,7 @@ def load_generator():
 
     if not os.path.exists(output):
         st.info("Downloading model from Google Drive...")
-        gdown.download(url, output, quiet=False)
+        gdown.download(url, output, quiet=False, fuzzy=True)
 
     model = torch.hub.load(
         'mateuszbuda/brain-segmentation-pytorch',
