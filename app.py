@@ -25,6 +25,7 @@ def load_generator():
                 for chunk in r.iter_content(chunk_size=8192):
                     f.write(chunk)
 
+    # Load U-Net model architecture from Torch Hub
     model = torch.hub.load(
         'mateuszbuda/brain-segmentation-pytorch',
         'unet',
@@ -32,16 +33,17 @@ def load_generator():
         out_channels=3,
         init_features=64,
         pretrained=False,
-        trust_repo=True  # ✅ avoids streamlit warnings
+        trust_repo=True  # ✅ Avoids streamlit trust warning
     )
 
+    # Load the weights (you saved only state_dict)
     checkpoint = torch.load(output, map_location=torch.device('cpu'))
-    model.load_state_dict(checkpoint)  # ✅ loading plain state_dict
+    model.load_state_dict(checkpoint)
     model.eval()
     return model
 
 # ==========================
-# Image Transform Utilities
+# Preprocessing Utilities
 # ==========================
 transform = transforms.Compose([
     transforms.Resize((256, 256)),
@@ -63,7 +65,7 @@ if uploaded_file:
     image = Image.open(uploaded_file).convert("RGB")
     st.image(image, caption="📸 Uploaded Image", use_container_width=True)
 
-    # Extract left half (satellite image)
+    # Extract left half (satellite input)
     w, h = image.size
     satellite = image.crop((0, 0, w // 2, h))
 
