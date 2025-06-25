@@ -10,7 +10,7 @@ import requests
 # ==========================
 @st.cache_resource
 def load_generator():
-    url = "https://huggingface.co/nandinijaiswal05/Satellite_to_roadmap/resolve/54ff31a4a0a7d0d8fbb2cdcb45021d302cfb3284/checkpoints.pth"
+    url = "https://huggingface.co/nandinijaiswal05/Satellite_to_roadmap/resolve/54ff31a4a0a7d0d8fbb2cdcb45021d302cfb3284"
     output = "checkpoints.pth"
 
     # Download file if not present
