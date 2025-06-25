@@ -7,14 +7,15 @@ import gdown
 
 @st.cache_resource
 def load_generator():
-    file_id = "13RiUDLFkhGtO6g1KDS0bdcCMHlSDeY_g"
-    url = f"https://drive.google.com/uc?id={file_id}"
+    url = "https://huggingface.co/username/model-repo-name/resolve/main/checkpoints.pth"
     output = "checkpoints.pth"
 
     if not os.path.exists(output):
-        st.info("Downloading model from Google Drive...")
-        gdown.download(url, output, quiet=False, fuzzy=True)
+        st.info("Downloading model from Hugging Face...")
+        import urllib.request
+        urllib.request.urlretrieve(url, output)
 
+    # Load model
     model = torch.hub.load(
         'mateuszbuda/brain-segmentation-pytorch',
         'unet',
