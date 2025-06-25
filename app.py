@@ -3,20 +3,22 @@ import torch
 import torchvision.transforms as transforms
 from PIL import Image
 import os
-import urllib.request
 import requests
 
+# ==========================
+# Load the Generator Model
+# ==========================
 @st.cache_resource
 def load_generator():
     url = "https://huggingface.co/nandinijaiswal05/Satellite_to_roadmap/resolve/main/checkpoints.pth"
     output = "checkpoints.pth"
 
     if not os.path.exists(output):
-        st.info("📦 Downloading model from Hugging Face (with retry)...")
+        st.info("📦 Downloading model from Hugging Face...")
         headers = {"User-Agent": "Mozilla/5.0"}
         with requests.get(url, headers=headers, stream=True) as r:
             if r.status_code == 429:
-                st.error("🚫 Rate limit exceeded (429). Try again later.")
+                st.error("🚫 Hugging Face rate limit (429). Try again later.")
                 st.stop()
             r.raise_for_status()
             with open(output, "wb") as f:
@@ -29,13 +31,18 @@ def load_generator():
         in_channels=3,
         out_channels=3,
         init_features=64,
-        pretrained=False
+        pretrained=False,
+        trust_repo=True  # ✅ avoids streamlit warnings
     )
+
     checkpoint = torch.load(output, map_location=torch.device('cpu'))
-    model.load_state_dict(checkpoint['gen_model_state_dict'])
+    model.load_state_dict(checkpoint)  # ✅ loading plain state_dict
     model.eval()
     return model
 
+# ==========================
+# Image Transform Utilities
+# ==========================
 transform = transforms.Compose([
     transforms.Resize((256, 256)),
     transforms.ToTensor()
@@ -45,14 +52,18 @@ def tensor_to_pil(tensor_img):
     tensor_img = tensor_img.squeeze(0).detach().cpu().clamp(0, 1)
     return transforms.ToPILImage()(tensor_img)
 
+# ==========================
+# Streamlit App UI
+# ==========================
 st.title("🛰️ Satellite to Roadmap Generator")
 
-uploaded_file = st.file_uploader("📤 Upload a satellite-to-roadmap image", type=["jpg", "jpeg", "png"])
+uploaded_file = st.file_uploader("📤 Upload a satellite image (side-by-side)", type=["jpg", "jpeg", "png"])
 
 if uploaded_file:
     image = Image.open(uploaded_file).convert("RGB")
     st.image(image, caption="📸 Uploaded Image", use_container_width=True)
 
+    # Extract left half (satellite image)
     w, h = image.size
     satellite = image.crop((0, 0, w // 2, h))
 
