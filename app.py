@@ -10,7 +10,7 @@ import requests
 # ==========================
 @st.cache_resource
 def load_generator():
-    url = "https://huggingface.co/nandinijaiswal05/Satellite_to_roadmap/resolve/main/checkpoints.pth"
+    url = "https://huggingface.co/nandinijaiswal05/Satellite_to_roadmap/resolve/54ff31a4a0a7d0d8fbb2cdcb45021d302cfb3284/checkpoints.pth"
     output = "checkpoints.pth"
 
     if not os.path.exists(output):
@@ -25,7 +25,6 @@ def load_generator():
                 for chunk in r.iter_content(chunk_size=8192):
                     f.write(chunk)
 
-    # Load U-Net model architecture from Torch Hub
     model = torch.hub.load(
         'mateuszbuda/brain-segmentation-pytorch',
         'unet',
@@ -33,14 +32,14 @@ def load_generator():
         out_channels=3,
         init_features=64,
         pretrained=False,
-        trust_repo=True  # ✅ Avoids streamlit trust warning
+        trust_repo=True
     )
 
-    # Load the weights (you saved only state_dict)
     checkpoint = torch.load(output, map_location=torch.device('cpu'))
     model.load_state_dict(checkpoint)
     model.eval()
     return model
+
 
 # ==========================
 # Preprocessing Utilities
