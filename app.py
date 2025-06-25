@@ -4,7 +4,7 @@ import torchvision.transforms as transforms
 from PIL import Image
 import os
 import urllib.request
-import request
+import requests
 
 @st.cache_resource
 def load_generator():
