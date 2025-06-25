@@ -1,26 +1,41 @@
 import streamlit as st
-import torch
-import torchvision.transforms as transforms
 from PIL import Image
 import os
+import torch
+import os
+import tarfile
 import requests
-import gdown
 
 @st.cache_resource
 def load_generator():
-    file_id = "13RiUDLFkhGtO6g1KDS0bdcCMHlSDeY_g"
-    url = f"https://drive.google.com/uc?id={file_id}"
-    output = "checkpoints.pth"
+    tar_url = "https://huggingface.co/nandinijaiswal05/Satellite_to_roadmap/resolve/main/checkpoints.tar"
+    tar_path = "checkpoints.tar"
+    pth_path = "checkpoints.pth"
 
-    if not os.path.exists(output):
-        st.info("📥 Downloading model from Google Drive...")
+    # Step 1: Download .tar file if not present
+    if not os.path.exists(tar_path):
+        st.info("📥 Downloading model archive from Hugging Face...")
         try:
-            gdown.download(url, output, quiet=False)
+            with requests.get(tar_url, stream=True) as r:
+                r.raise_for_status()
+                with open(tar_path, "wb") as f:
+                    for chunk in r.iter_content(chunk_size=8192):
+                        f.write(chunk)
         except Exception as e:
-            st.error(f"❌ Failed to download model: {e}")
+            st.error(f"❌ Failed to download .tar file: {e}")
             st.stop()
 
-    # Load model architecture
+    # Step 2: Extract checkpoints.pth
+    if not os.path.exists(pth_path):
+        try:
+            st.info("📂 Extracting model weights...")
+            with tarfile.open(tar_path, "r") as tar:
+                tar.extractall()
+        except Exception as e:
+            st.error(f"❌ Failed to extract model from .tar: {e}")
+            st.stop()
+
+    # Step 3: Load model architecture
     try:
         model = torch.hub.load(
             'mateuszbuda/brain-segmentation-pytorch',
@@ -35,16 +50,17 @@ def load_generator():
         st.error(f"❌ Failed to load model architecture: {e}")
         st.stop()
 
-    # Load weights
+    # Step 4: Load weights
     try:
-        checkpoint = torch.load(output, map_location='cpu')
-        model.load_state_dict(checkpoint)  # Assuming it's saved using model.state_dict()
+        checkpoint = torch.load(pth_path, map_location='cpu')
+        model.load_state_dict(checkpoint)
         model.eval()
     except Exception as e:
         st.error(f"❌ Failed to load model weights: {e}")
         st.stop()
 
     return model
+
 
 # Image transformation
 transform = transforms.Compose([
