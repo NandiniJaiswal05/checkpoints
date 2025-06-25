@@ -8,31 +8,35 @@ import requests
 # ==========================
 # Load the Generator Model
 # ==========================
+import streamlit as st
+import torch
+import os
+import requests
+import mimetypes
+
 @st.cache_resource
 def load_generator():
-    url = "https://huggingface.co/nandinijaiswal05/Satellite_to_roadmap/resolve/54ff31a4a0a7d0d8fbb2cdcb45021d302cfb3284"
+    url = "https://huggingface.co/nandinijaiswal05/Satellite_to_roadmap/resolve/54ff31a4a0a7d0d8fbb2cdcb45021d302cfb3284/checkpoints.pth"
     output = "checkpoints.pth"
 
-    # Download file if not present
+    # Step 1: Download file safely
     if not os.path.exists(output):
-        st.info("📥 Downloading model from Hugging Face...")
+        st.info("📥 Downloading model from Hugging Face (via Git LFS)...")
         headers = {"User-Agent": "Mozilla/5.0"}
         try:
             with requests.get(url, headers=headers, stream=True) as r:
-                if r.status_code == 429:
-                    st.error("🚫 Rate limited by Hugging Face. Try again later.")
-                    st.stop()
-                if r.status_code != 200 or "html" in r.headers.get("Content-Type", ""):
-                    st.error("❌ File download failed. The file is not a valid model.")
+                content_type = r.headers.get("Content-Type", "")
+                if r.status_code != 200 or "html" in content_type.lower():
+                    st.error(f"❌ File download failed. Type: {content_type}")
                     st.stop()
                 with open(output, "wb") as f:
                     for chunk in r.iter_content(chunk_size=8192):
                         f.write(chunk)
         except Exception as e:
-            st.error(f"❌ Error during model download: {e}")
+            st.error(f"❌ Download error: {e}")
             st.stop()
 
-    # Load the model architecture
+    # Step 2: Load model architecture (U-Net)
     try:
         model = torch.hub.load(
             'mateuszbuda/brain-segmentation-pytorch',
@@ -44,31 +48,40 @@ def load_generator():
             trust_repo=True
         )
     except Exception as e:
-        st.error(f"❌ Failed to load U-Net architecture: {e}")
+        st.error(f"❌ U-Net architecture load failed: {e}")
         st.stop()
 
-    # Load weights with dynamic format check
+    # Step 3: Try loading the .pth file in every known format
     try:
-        checkpoint = torch.load(output, map_location=torch.device('cpu'))
+        checkpoint = torch.load(output, map_location='cpu')
 
         if isinstance(checkpoint, dict):
             if 'gen_model_state_dict' in checkpoint:
-                model.load_state_dict(checkpoint['gen_model_state_dict'])  # ✅ case 2
-                st.success("✅ Loaded from checkpoint dictionary (with 'gen_model_state_dict').")
+                model.load_state_dict(checkpoint['gen_model_state_dict'])
+                st.success("✅ Loaded from full checkpoint dictionary with 'gen_model_state_dict'")
             elif all(isinstance(k, str) for k in checkpoint.keys()):
-                model.load_state_dict(checkpoint)  # ✅ case 1
-                st.success("✅ Loaded from plain state_dict.")
+                model.load_state_dict(checkpoint)
+                st.success("✅ Loaded from plain state_dict")
             else:
-                raise ValueError("Unknown dict format inside .pth file.")
-        else:
-            raise ValueError("The file does not contain a supported model format.")
+                st.error("❌ .pth file contains an unrecognized dict format.")
+                st.stop()
 
-        model.eval()
-        return model
+        else:
+            st.warning("⚠️ The file is not a dict. Attempting TorchScript load (unlikely).")
+            try:
+                model = torch.jit.load(output, map_location='cpu')
+                st.success("✅ Loaded as a TorchScript model (jit)")
+            except Exception as e:
+                st.error(f"❌ TorchScript load also failed: {e}")
+                st.stop()
 
     except Exception as e:
-        st.error(f"❌ Failed to load model weights: {e}")
+        st.error(f"❌ torch.load failed: {e}")
         st.stop()
+
+    model.eval()
+    return model
+
 
 
 # ==========================
