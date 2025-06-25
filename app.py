@@ -7,11 +7,11 @@ import urllib.request
 
 @st.cache_resource
 def load_generator():
-    url = "https://www.dropbox.com/scl/fi/wrae5qoxvmc432whdi8fc/checkpoints.pth?rlkey=ilw12iytudgwi1o0ykqd5tdgh&st=2fzj0h7l&dl=1"
+    url = "https://huggingface.co/nandinijaiswal05/Satellite_to_roadmap/resolve/main/checkpoints.pth"
     output = "checkpoints.pth"
 
     if not os.path.exists(output):
-        st.info("📦 Downloading model from Dropbox...")
+        st.info("📦 Downloading model from Hugging Face...")
         urllib.request.urlretrieve(url, output)
 
     model = torch.hub.load(
@@ -26,7 +26,6 @@ def load_generator():
     model.load_state_dict(checkpoint['gen_model_state_dict'])
     model.eval()
     return model
-
 
 transform = transforms.Compose([
     transforms.Resize((256, 256)),
@@ -45,7 +44,6 @@ if uploaded_file:
     image = Image.open(uploaded_file).convert("RGB")
     st.image(image, caption="📸 Uploaded Image", use_container_width=True)
 
-    # Crop the satellite image (assumes it's on the left half)
     w, h = image.size
     satellite = image.crop((0, 0, w // 2, h))
 
@@ -54,8 +52,8 @@ if uploaded_file:
 
     input_tensor = transform(satellite).unsqueeze(0)
 
-    # Load model and predict
     generator = load_generator()
+
     with torch.no_grad():
         output = generator(input_tensor)
 
