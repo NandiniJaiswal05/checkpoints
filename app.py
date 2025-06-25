@@ -1,10 +1,10 @@
 import streamlit as st
 from PIL import Image
-import os
 import torch
 import os
 import tarfile
 import requests
+import torchvision.transforms as transforms  # ✅ Missing import added
 
 @st.cache_resource
 def load_generator():
@@ -61,7 +61,6 @@ def load_generator():
 
     return model
 
-
 # Image transformation
 transform = transforms.Compose([
     transforms.Resize((256, 256)),
@@ -82,6 +81,7 @@ if uploaded_file:
         image = Image.open(uploaded_file).convert("RGB")
         st.image(image, caption="📸 Uploaded Image", use_container_width=True)
 
+        # Split image in half
         w, h = image.size
         satellite = image.crop((0, 0, w // 2, h))
 
@@ -90,6 +90,7 @@ if uploaded_file:
 
         input_tensor = transform(satellite).unsqueeze(0)
 
+        # Load model & generate roadmap
         generator = load_generator()
 
         with torch.no_grad():
