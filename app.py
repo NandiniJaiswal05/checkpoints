@@ -4,6 +4,7 @@ import torchvision.transforms as transforms
 from PIL import Image
 import os
 import urllib.request
+import request
 
 @st.cache_resource
 def load_generator():
@@ -11,8 +12,16 @@ def load_generator():
     output = "checkpoints.pth"
 
     if not os.path.exists(output):
-        st.info("📦 Downloading model from Hugging Face...")
-        urllib.request.urlretrieve(url, output)
+        st.info("📦 Downloading model from Hugging Face (with retry)...")
+        headers = {"User-Agent": "Mozilla/5.0"}
+        with requests.get(url, headers=headers, stream=True) as r:
+            if r.status_code == 429:
+                st.error("🚫 Rate limit exceeded (429). Try again later.")
+                st.stop()
+            r.raise_for_status()
+            with open(output, "wb") as f:
+                for chunk in r.iter_content(chunk_size=8192):
+                    f.write(chunk)
 
     model = torch.hub.load(
         'mateuszbuda/brain-segmentation-pytorch',
