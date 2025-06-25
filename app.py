@@ -7,15 +7,14 @@ import gdown
 
 @st.cache_resource
 def load_generator():
-    url = "hhttps://drive.google.com/file/d/13RiUDLFkhGtO6g1KDS0bdcCMHlSDeY_g/view?usp=sharing"
+    file_id = "13RiUDLFkhGtO6g1KDS0bdcCMHlSDeY_g"
+    url = f"https://drive.google.com/uc?id={file_id}"
     output = "checkpoints.pth"
 
     if not os.path.exists(output):
-        st.info("Downloading model from Drive...")
-        import urllib.request
-        urllib.request.urlretrieve(url, output)
+        st.info("Downloading model from Google Drive...")
+        gdown.download(url, output, quiet=False, fuzzy=True)
 
-    # Load model
     model = torch.hub.load(
         'mateuszbuda/brain-segmentation-pytorch',
         'unet',
@@ -28,7 +27,7 @@ def load_generator():
     model.load_state_dict(checkpoint['gen_model_state_dict'])
     model.eval()
     return model
-
+    
 transform = transforms.Compose([
     transforms.Resize((256, 256)),
     transforms.ToTensor()
