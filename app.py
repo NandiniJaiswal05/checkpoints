@@ -7,11 +7,11 @@ import gdown
 
 @st.cache_resource
 def load_generator():
-    url = "https://huggingface.co/username/model-repo-name/resolve/main/checkpoints.pth"
+    url = "hhttps://drive.google.com/file/d/13RiUDLFkhGtO6g1KDS0bdcCMHlSDeY_g/view?usp=sharing"
     output = "checkpoints.pth"
 
     if not os.path.exists(output):
-        st.info("Downloading model from Hugging Face...")
+        st.info("Downloading model from Drive...")
         import urllib.request
         urllib.request.urlretrieve(url, output)
 
