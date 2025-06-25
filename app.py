@@ -1,9 +1,9 @@
 import streamlit as st
 import os
 import requests
-import convert_model
+import torch
 
-MODEL_URL = "https://drive.google.com/file/d/13RiUDLFkhGtO6g1KDS0bdcCMHlSDeY_g/view?usp=sharing"
+MODEL_URL = "https://drive.google.com/uc?export=download&id=1AbCxyz1234567890"
 MODEL_PATH = "checkpoints.pth"
 
 @st.cache_resource
@@ -14,7 +14,7 @@ def load_model():
         with open(MODEL_PATH, "wb") as f:
             f.write(response.content)
 
-    model = convert_model.load(MODEL_PATH, map_location=convert_model.device('cpu'))
+    model = torch.load(MODEL_PATH, map_location=torch.device('cpu'))
     model.eval()
     return model
 
