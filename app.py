@@ -2,29 +2,27 @@ import streamlit as st
 from PIL import Image
 import torch
 import os
-import tarfile
 import requests
 import torchvision.transforms as transforms
 
 @st.cache_resource
 def load_generator():
-    url = "https://huggingface.co/nandinijaiswal05/Satellite_to_roadmap/resolve/main/checkpoints%20(3).pth"
-    local_path = "checkpoints(3).pth"
+    # 🔁 Replace this with your correct Dropbox direct link
+    url = "https://www.dropbox.com/scl/fi/wrae5qoxvmc432whdi8fc/checkpoints.pth?rlkey=ilw12iytudgwi1o0ykqd5tdgh&dl=1"
+    output_path = "checkpoints.pth"
 
-    # Step 1: Download .pth file directly
-    if not os.path.exists(local_path):
-        st.info("📥 Downloading model weights (.pth) from Hugging Face...")
+    if not os.path.exists(output_path):
+        st.info("📥 Downloading model from Dropbox...")
         try:
             with requests.get(url, stream=True) as r:
                 r.raise_for_status()
-                with open(local_path, "wb") as f:
+                with open(output_path, 'wb') as f:
                     for chunk in r.iter_content(chunk_size=8192):
                         f.write(chunk)
         except Exception as e:
-            st.error(f"❌ Failed to download .pth file: {e}")
+            st.error(f"❌ Failed to download model: {e}")
             st.stop()
 
-    # Step 2: Load model architecture
     try:
         model = torch.hub.load(
             'mateuszbuda/brain-segmentation-pytorch',
@@ -39,22 +37,19 @@ def load_generator():
         st.error(f"❌ Failed to load model architecture: {e}")
         st.stop()
 
-    # Step 3: Load weights
     try:
-        checkpoint = torch.load(local_path, map_location='cpu')
+        checkpoint = torch.load(output_path, map_location='cpu')
         if isinstance(checkpoint, dict) and 'gen_model_state_dict' in checkpoint:
-            st.warning("ℹ️ Found full checkpoint dict. Loading 'gen_model_state_dict'.")
             model.load_state_dict(checkpoint['gen_model_state_dict'])
         else:
-            st.success("✅ Found raw state_dict.")
             model.load_state_dict(checkpoint)
-
         model.eval()
     except Exception as e:
-        st.error(f"❌ Failed to load model weights: {e}")
+        st.error(f"❌ Failed to load weights: {e}")
         st.stop()
 
     return model
+
 
 # Image preprocessing
 transform = transforms.Compose([
