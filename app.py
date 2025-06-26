@@ -13,11 +13,11 @@ class ResnetBlock(nn.Module):
         conv_block = [
             nn.ReflectionPad2d(1),
             nn.Conv2d(dim, dim, kernel_size=3),
-            nn.BatchNorm2d(dim),
+            nn.InstanceNorm2d(dim, affine=True, track_running_stats=False),
             nn.ReLU(True),
             nn.ReflectionPad2d(1),
             nn.Conv2d(dim, dim, kernel_size=3),
-            nn.BatchNorm2d(dim)
+            nn.InstanceNorm2d(dim, affine=True, track_running_stats=False)
         ]
         self.conv_block = nn.Sequential(*conv_block)
 
@@ -31,7 +31,7 @@ class ResnetGenerator(nn.Module):
         model = [
             nn.ReflectionPad2d(3),
             nn.Conv2d(input_nc, ngf, kernel_size=7),
-            nn.BatchNorm2d(ngf),
+            nn.InstanceNorm2d(ngf, affine=True, track_running_stats=False),
             nn.ReLU(True)
         ]
 
@@ -40,7 +40,7 @@ class ResnetGenerator(nn.Module):
             mult = 2 ** i
             model += [
                 nn.Conv2d(ngf * mult, ngf * mult * 2, kernel_size=3, stride=2, padding=1),
-                nn.BatchNorm2d(ngf * mult * 2),
+                nn.InstanceNorm2d(ngf * mult * 2, affine=True, track_running_stats=False),
                 nn.ReLU(True)
             ]
 
@@ -54,7 +54,7 @@ class ResnetGenerator(nn.Module):
                 nn.ConvTranspose2d(ngf * mult, int(ngf * mult / 2),
                                    kernel_size=3, stride=2,
                                    padding=1, output_padding=1),
-                nn.BatchNorm2d(int(ngf * mult / 2)),
+                nn.InstanceNorm2d(int(ngf * mult / 2), affine=True, track_running_stats=False),
                 nn.ReLU(True)
             ]
 
@@ -72,8 +72,8 @@ class ResnetGenerator(nn.Module):
 # --- Load Generator ---
 @st.cache_resource
 def load_generator():
-    url = "https://www.dropbox.com/scl/fi/wlsa4st7s81sjdv44afku/latest_net_G.pth?rlkey=9qvalco841z75u6bm5iwcecar&dl=1"
-    model_path = "latest_net_G.pth"
+    url = "https://www.dropbox.com/scl/fi/wrae5qoxvmc432whdi8fc/checkpoints.pth?rlkey=ilw12iytudgwi1o0ykqd5tdgh&dl=1"
+    model_path = "checkpoints.pth"
 
     if not os.path.exists(model_path):
         st.info("📥 Downloading model from Dropbox...")
@@ -90,7 +90,7 @@ def load_generator():
     model = ResnetGenerator(input_nc=3, output_nc=3, ngf=64, n_blocks=9)
     try:
         checkpoint = torch.load(model_path, map_location='cpu')
-        model.load_state_dict(checkpoint)
+        model.load_state_dict(checkpoint, strict=False)
         model.eval()
     except Exception as e:
         st.error(f"❌ Failed to load model weights: {e}")
