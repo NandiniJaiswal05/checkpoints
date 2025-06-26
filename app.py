@@ -41,7 +41,7 @@ def load_generator():
 
     # Step 3: Load weights
     try:
-        checkpoint = torch.load(MODEL_PATH, map_location='cpu')
+        checkpoint = torch.load(MODEL_PATH, map_location='cpu', weights_only=False)
         if isinstance(checkpoint, dict) and 'gen_model_state_dict' in checkpoint:
             model.load_state_dict(checkpoint['gen_model_state_dict'])
         else:
