@@ -6,7 +6,7 @@ import requests
 import torchvision.transforms as transforms
 
 # === Configuration ===
-MODEL_URL = "https://www.dropbox.com/scl/fi/wrae5qoxvmc432whdi8fc/checkpoints.pth?rlkey=ilw12iytudgwi1o0ykqd5tdgh&dl=0"
+MODEL_URL = "https://www.dropbox.com/scl/fi/wrae5qoxvmc432whdi8fc/checkpoints.pth?rlkey=ilw12iytudgwi1o0ykqd5tdgh&dl=1"
 MODEL_PATH = "checkpoints.pth"
 
 @st.cache_resource
