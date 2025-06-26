@@ -8,8 +8,8 @@ import torchvision.transforms as transforms
 
 @st.cache_resource
 def load_generator():
-    url = "https://huggingface.co/nandinijaiswal05/Satellite_to_roadmap/resolve/main/checkpoints.pth"
-    local_path = "checkpoints.pth"
+    url = "https://huggingface.co/nandinijaiswal05/Satellite_to_roadmap/resolve/main/checkpoints%20(3).pth"
+    local_path = "checkpoints(3).pth"
 
     # Step 1: Download .pth file directly
     if not os.path.exists(local_path):
