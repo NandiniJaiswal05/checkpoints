@@ -1,98 +1,64 @@
 import streamlit as st
-from PIL import Image
 import torch
-import os
-import requests
-import torchvision.transforms as transforms
+from torchvision import transforms
+from PIL import Image
+from cycle_gan_model import CycleGANModel
 
-# === Configuration ===
-MODEL_URL = "https://www.dropbox.com/scl/fi/wrae5qoxvmc432whdi8fc/checkpoints.pth?rlkey=ilw12iytudgwi1o0ykqd5tdgh&dl=1"
-MODEL_PATH = "checkpoints.pth"
+# ==== Dummy config class to simulate args ====
+class Opt:
+    def __init__(self):
+        self.input_nc = 3
+        self.output_nc = 3
+        self.ngf = 64
+        self.netG = 'resnet_9blocks'
+        self.norm = 'instance'
+        self.no_dropout = True
+        self.init_type = 'normal'
+        self.init_gain = 0.02
+        self.direction = 'AtoB'
+        self.gpu_ids = []
+        self.isTrain = False
 
 @st.cache_resource
-def load_generator():
-    # Step 1: Download model if not already present
-    if not os.path.exists(MODEL_PATH):
-        st.info("📥 Downloading model from Dropbox...")
-        try:
-            with requests.get(MODEL_URL, stream=True) as r:
-                r.raise_for_status()
-                with open(MODEL_PATH, 'wb') as f:
-                    for chunk in r.iter_content(chunk_size=8192):
-                        f.write(chunk)
-        except Exception as e:
-            st.error(f"❌ Failed to download model: {e}")
-            st.stop()
+def load_model():
+    opt = Opt()
+    model = CycleGANModel(opt)
+    model.setup(opt)  # Calls BaseModel.setup
 
-    # Step 2: Load model architecture
-    try:
-        model = torch.hub.load(
-            'mateuszbuda/brain-segmentation-pytorch',
-            'unet',
-            in_channels=3,
-            out_channels=3,
-            init_features=64,
-            pretrained=False,
-            trust_repo=True
-        )
-    except Exception as e:
-        st.error(f"❌ Failed to load model architecture: {e}")
-        st.stop()
+    state_dict = torch.load("latest_net_G.pth", map_location="cpu")
+    model.netG_A.load_state_dict(state_dict)
+    model.netG_A.eval()
+    return model.netG_A
 
-    # Step 3: Load weights
-    try:
-        checkpoint = torch.load(MODEL_PATH, map_location='cpu', weights_only=False)
-        if isinstance(checkpoint, dict) and 'gen_model_state_dict' in checkpoint:
-            model.load_state_dict(checkpoint['gen_model_state_dict'])
-        else:
-            model.load_state_dict(checkpoint)
-        model.eval()
-    except Exception as e:
-        st.error(f"❌ Failed to load weights: {e}")
-        st.stop()
+def preprocess(image):
+    transform = transforms.Compose([
+        transforms.Resize((256, 256)),
+        transforms.ToTensor(),
+        transforms.Normalize((0.5,), (0.5,))
+    ])
+    return transform(image).unsqueeze(0)
 
-    return model
+def postprocess(tensor):
+    tensor = tensor.squeeze().cpu().detach()
+    tensor = (tensor + 1) / 2
+    return transforms.ToPILImage()(tensor)
 
-# === Image transformation ===
-transform = transforms.Compose([
-    transforms.Resize((256, 256)),
-    transforms.ToTensor()
-])
+# ==== Streamlit UI ====
+st.title("🛰️ Satellite to Roadmap Translator")
 
-def tensor_to_pil(tensor_img):
-    tensor_img = tensor_img.squeeze(0).detach().cpu().clamp(0, 1)
-    return transforms.ToPILImage()(tensor_img)
-
-# === Streamlit App UI ===
-st.set_page_config(page_title="Satellite to Roadmap", layout="centered")
-st.title("🛰 Satellite to Roadmap Generator")
-
-uploaded_file = st.file_uploader("📤 Upload a satellite image (side-by-side)", type=["jpg", "jpeg", "png"])
+uploaded_file = st.file_uploader("Upload a Satellite Image", type=['jpg', 'png', 'jpeg'])
 
 if uploaded_file:
-    try:
-        image = Image.open(uploaded_file).convert("RGB")
-        st.image(image, caption="📸 Uploaded Image", use_container_width=True)
+    image = Image.open(uploaded_file).convert('RGB')
+    st.image(image, caption="Input Satellite Image", use_column_width=True)
 
-        # Step 1: Crop left half as satellite input
-        w, h = image.size
-        satellite = image.crop((0, 0, w // 2, h))
+    with st.spinner("Translating..."):
+        model = load_model()
+        input_tensor = preprocess(image)
 
-        st.subheader("🧭 Satellite Input (Left Half)")
-        st.image(satellite, use_container_width=True)
+        with torch.no_grad():
+            output_tensor = model(input_tensor)
 
-        # Step 2: Preprocess
-        input_tensor = transform(satellite).unsqueeze(0)
+        output_image = postprocess(output_tensor)
 
-        # Step 3: Generate
-        with st.spinner("🔧 Loading model & generating roadmap..."):
-            generator = load_generator()
-            with torch.no_grad():
-                output = generator(input_tensor)
-            roadmap = tensor_to_pil(output)
-
-        st.subheader("🗺 Predicted Roadmap (Right Output)")
-        st.image(roadmap, use_container_width=True)
-
-    except Exception as e:
-        st.error(f"❌ Error processing image or generating roadmap: {e}")
+    st.image(output_image, caption="Output Roadmap Image", use_column_width=True)
