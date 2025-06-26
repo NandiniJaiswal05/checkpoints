@@ -2,63 +2,98 @@ import streamlit as st
 import torch
 from torchvision import transforms
 from PIL import Image
-from cycle_gan_model import CycleGANModel
+import torch.nn as nn
+import functools
 
-# ==== Dummy config class to simulate args ====
-class Opt:
-    def __init__(self):
-        self.input_nc = 3
-        self.output_nc = 3
-        self.ngf = 64
-        self.netG = 'resnet_9blocks'
-        self.norm = 'instance'
-        self.no_dropout = True
-        self.init_type = 'normal'
-        self.init_gain = 0.02
-        self.direction = 'AtoB'
-        self.gpu_ids = []
-        self.isTrain = False
+# Minimal ResNetBlock & Generator
+class ResnetBlock(nn.Module):
+    def __init__(self, dim, norm_layer):
+        super().__init__()
+        self.block = nn.Sequential(
+            nn.ReflectionPad2d(1),
+            nn.Conv2d(dim, dim, 3),
+            norm_layer(dim),
+            nn.ReLU(True),
+            nn.ReflectionPad2d(1),
+            nn.Conv2d(dim, dim, 3),
+            norm_layer(dim)
+        )
+
+    def forward(self, x):
+        return x + self.block(x)
+
+class ResnetGenerator(nn.Module):
+    def __init__(self, input_nc, output_nc, ngf=64, n_blocks=9):
+        super().__init__()
+        norm_layer = functools.partial(nn.InstanceNorm2d, affine=False)
+        model = [
+            nn.ReflectionPad2d(3),
+            nn.Conv2d(input_nc, ngf, kernel_size=7),
+            norm_layer(ngf),
+            nn.ReLU(True),
+
+            nn.Conv2d(ngf, ngf*2, 3, 2, 1),
+            norm_layer(ngf*2),
+            nn.ReLU(True),
+
+            nn.Conv2d(ngf*2, ngf*4, 3, 2, 1),
+            norm_layer(ngf*4),
+            nn.ReLU(True),
+        ]
+        for _ in range(n_blocks):
+            model.append(ResnetBlock(ngf*4, norm_layer))
+
+        model += [
+            nn.ConvTranspose2d(ngf*4, ngf*2, 3, 2, 1, 1),
+            norm_layer(ngf*2),
+            nn.ReLU(True),
+
+            nn.ConvTranspose2d(ngf*2, ngf, 3, 2, 1, 1),
+            norm_layer(ngf),
+            nn.ReLU(True),
+
+            nn.ReflectionPad2d(3),
+            nn.Conv2d(ngf, output_nc, kernel_size=7),
+            nn.Tanh()
+        ]
+        self.model = nn.Sequential(*model)
+
+    def forward(self, x):
+        return self.model(x)
 
 @st.cache_resource
 def load_model():
-    opt = Opt()
-    model = CycleGANModel(opt)
-    model.setup(opt)  # Calls BaseModel.setup
+    model = ResnetGenerator(3, 3)
+    model.load_state_dict(torch.load("latest_net_G.pth", map_location="cpu"))
+    model.eval()
+    return model
 
-    state_dict = torch.load("latest_net_G.pth", map_location="cpu")
-    model.netG_A.load_state_dict(state_dict)
-    model.netG_A.eval()
-    return model.netG_A
-
-def preprocess(image):
+def preprocess(img):
     transform = transforms.Compose([
         transforms.Resize((256, 256)),
         transforms.ToTensor(),
         transforms.Normalize((0.5,), (0.5,))
     ])
-    return transform(image).unsqueeze(0)
+    return transform(img).unsqueeze(0)
 
 def postprocess(tensor):
-    tensor = tensor.squeeze().cpu().detach()
+    tensor = tensor.squeeze().detach().cpu()
     tensor = (tensor + 1) / 2
     return transforms.ToPILImage()(tensor)
 
-# ==== Streamlit UI ====
-st.title("🛰️ Satellite to Roadmap Translator")
+st.title("🛰️ Satellite to Roadmap Converter")
 
-uploaded_file = st.file_uploader("Upload a Satellite Image", type=['jpg', 'png', 'jpeg'])
+file = st.file_uploader("Upload a Satellite Image", type=["jpg", "png", "jpeg"])
 
-if uploaded_file:
-    image = Image.open(uploaded_file).convert('RGB')
-    st.image(image, caption="Input Satellite Image", use_column_width=True)
+if file:
+    image = Image.open(file).convert('RGB')
+    st.image(image, caption="Input Image", use_column_width=True)
 
-    with st.spinner("Translating..."):
-        model = load_model()
-        input_tensor = preprocess(image)
+    model = load_model()
+    input_tensor = preprocess(image)
 
-        with torch.no_grad():
-            output_tensor = model(input_tensor)
+    with torch.no_grad():
+        output_tensor = model(input_tensor)
 
-        output_image = postprocess(output_tensor)
-
+    output_image = postprocess(output_tensor)
     st.image(output_image, caption="Output Roadmap Image", use_column_width=True)
