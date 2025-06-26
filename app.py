@@ -8,34 +8,23 @@ import torchvision.transforms as transforms
 
 @st.cache_resource
 def load_generator():
-    tar_url = "https://huggingface.co/nandinijaiswal05/Satellite_to_roadmap/resolve/main/checkpoints.tar"
-    tar_path = "checkpoints.tar"
-    pth_path = "checkpoints.pth"
+    url = "https://huggingface.co/nandinijaiswal05/Satellite_to_roadmap/resolve/main/checkpoints.pth"
+    local_path = "checkpoints.pth"
 
-    # Step 1: Download .tar file
-    if not os.path.exists(tar_path):
-        st.info("📥 Downloading model archive from Hugging Face...")
+    # Step 1: Download .pth file directly
+    if not os.path.exists(local_path):
+        st.info("📥 Downloading model weights (.pth) from Hugging Face...")
         try:
-            with requests.get(tar_url, stream=True) as r:
+            with requests.get(url, stream=True) as r:
                 r.raise_for_status()
-                with open(tar_path, "wb") as f:
+                with open(local_path, "wb") as f:
                     for chunk in r.iter_content(chunk_size=8192):
                         f.write(chunk)
         except Exception as e:
-            st.error(f"❌ Failed to download .tar file: {e}")
+            st.error(f"❌ Failed to download .pth file: {e}")
             st.stop()
 
-    # Step 2: Extract .pth from tar
-    if not os.path.exists(pth_path):
-        try:
-            st.info("📂 Extracting checkpoints.pth from archive...")
-            with tarfile.open(tar_path, "r") as tar:
-                tar.extractall()
-        except Exception as e:
-            st.error(f"❌ Failed to extract model from .tar: {e}")
-            st.stop()
-
-    # Step 3: Load U-Net architecture
+    # Step 2: Load model architecture
     try:
         model = torch.hub.load(
             'mateuszbuda/brain-segmentation-pytorch',
@@ -50,15 +39,14 @@ def load_generator():
         st.error(f"❌ Failed to load model architecture: {e}")
         st.stop()
 
-    # Step 4: Load weights
+    # Step 3: Load weights
     try:
-        checkpoint = torch.load(pth_path, map_location='cpu')
-
+        checkpoint = torch.load(local_path, map_location='cpu')
         if isinstance(checkpoint, dict) and 'gen_model_state_dict' in checkpoint:
-            st.warning("ℹ️ Detected full checkpoint with 'gen_model_state_dict'.")
+            st.warning("ℹ️ Found full checkpoint dict. Loading 'gen_model_state_dict'.")
             model.load_state_dict(checkpoint['gen_model_state_dict'])
         else:
-            st.success("✅ Detected raw state_dict. Loading directly.")
+            st.success("✅ Found raw state_dict.")
             model.load_state_dict(checkpoint)
 
         model.eval()
