@@ -4,7 +4,7 @@ import torch
 import os
 import tarfile
 import requests
-import torchvision.transforms as transforms  # ✅ Missing import added
+import torchvision.transforms as transforms
 
 @st.cache_resource
 def load_generator():
@@ -12,7 +12,7 @@ def load_generator():
     tar_path = "checkpoints.tar"
     pth_path = "checkpoints.pth"
 
-    # Step 1: Download .tar file if not present
+    # Step 1: Download .tar file
     if not os.path.exists(tar_path):
         st.info("📥 Downloading model archive from Hugging Face...")
         try:
@@ -25,17 +25,17 @@ def load_generator():
             st.error(f"❌ Failed to download .tar file: {e}")
             st.stop()
 
-    # Step 2: Extract checkpoints.pth
+    # Step 2: Extract .pth from tar
     if not os.path.exists(pth_path):
         try:
-            st.info("📂 Extracting model weights...")
+            st.info("📂 Extracting checkpoints.pth from archive...")
             with tarfile.open(tar_path, "r") as tar:
                 tar.extractall()
         except Exception as e:
             st.error(f"❌ Failed to extract model from .tar: {e}")
             st.stop()
 
-    # Step 3: Load model architecture
+    # Step 3: Load U-Net architecture
     try:
         model = torch.hub.load(
             'mateuszbuda/brain-segmentation-pytorch',
@@ -53,7 +53,14 @@ def load_generator():
     # Step 4: Load weights
     try:
         checkpoint = torch.load(pth_path, map_location='cpu')
-        model.load_state_dict(checkpoint)
+
+        if isinstance(checkpoint, dict) and 'gen_model_state_dict' in checkpoint:
+            st.warning("ℹ️ Detected full checkpoint with 'gen_model_state_dict'.")
+            model.load_state_dict(checkpoint['gen_model_state_dict'])
+        else:
+            st.success("✅ Detected raw state_dict. Loading directly.")
+            model.load_state_dict(checkpoint)
+
         model.eval()
     except Exception as e:
         st.error(f"❌ Failed to load model weights: {e}")
@@ -61,7 +68,7 @@ def load_generator():
 
     return model
 
-# Image transformation
+# Image preprocessing
 transform = transforms.Compose([
     transforms.Resize((256, 256)),
     transforms.ToTensor()
@@ -71,7 +78,7 @@ def tensor_to_pil(tensor_img):
     tensor_img = tensor_img.squeeze(0).detach().cpu().clamp(0, 1)
     return transforms.ToPILImage()(tensor_img)
 
-# Streamlit UI
+# UI
 st.title("🛰️ Satellite to Roadmap Generator")
 
 uploaded_file = st.file_uploader("📤 Upload a satellite image (side-by-side)", type=["jpg", "jpeg", "png"])
@@ -81,7 +88,7 @@ if uploaded_file:
         image = Image.open(uploaded_file).convert("RGB")
         st.image(image, caption="📸 Uploaded Image", use_container_width=True)
 
-        # Split image in half
+        # Split left half
         w, h = image.size
         satellite = image.crop((0, 0, w // 2, h))
 
@@ -90,7 +97,6 @@ if uploaded_file:
 
         input_tensor = transform(satellite).unsqueeze(0)
 
-        # Load model & generate roadmap
         generator = load_generator()
 
         with torch.no_grad():
@@ -102,4 +108,4 @@ if uploaded_file:
         st.image(roadmap, use_container_width=True)
 
     except Exception as e:
-        st.error(f"❌ Error processing image or prediction: {e}")
+        st.error(f"❌ Error processing image or generating roadmap: {e}")
