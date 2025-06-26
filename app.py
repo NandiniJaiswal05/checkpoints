@@ -5,24 +5,26 @@ import os
 import requests
 import torchvision.transforms as transforms
 
+# === Configuration ===
+MODEL_URL = "https://www.dropbox.com/scl/fi/wrae5qoxvmc432whdi8fc/checkpoints.pth?rlkey=ilw12iytudgwi1o0ykqd5tdgh&dl=1"
+MODEL_PATH = "checkpoints.pth"
+
 @st.cache_resource
 def load_generator():
-    # 🔁 Replace this with your correct Dropbox direct link
-    url = "https://www.dropbox.com/scl/fi/wrae5qoxvmc432whdi8fc/checkpoints.pth?rlkey=ilw12iytudgwi1o0ykqd5tdgh&dl=1"
-    output_path = "checkpoints.pth"
-
-    if not os.path.exists(output_path):
+    # Step 1: Download model if not already present
+    if not os.path.exists(MODEL_PATH):
         st.info("📥 Downloading model from Dropbox...")
         try:
-            with requests.get(url, stream=True) as r:
+            with requests.get(MODEL_URL, stream=True) as r:
                 r.raise_for_status()
-                with open(output_path, 'wb') as f:
+                with open(MODEL_PATH, 'wb') as f:
                     for chunk in r.iter_content(chunk_size=8192):
                         f.write(chunk)
         except Exception as e:
             st.error(f"❌ Failed to download model: {e}")
             st.stop()
 
+    # Step 2: Load model architecture
     try:
         model = torch.hub.load(
             'mateuszbuda/brain-segmentation-pytorch',
@@ -37,8 +39,9 @@ def load_generator():
         st.error(f"❌ Failed to load model architecture: {e}")
         st.stop()
 
+    # Step 3: Load weights
     try:
-        checkpoint = torch.load(output_path, map_location='cpu')
+        checkpoint = torch.load(MODEL_PATH, map_location='cpu')
         if isinstance(checkpoint, dict) and 'gen_model_state_dict' in checkpoint:
             model.load_state_dict(checkpoint['gen_model_state_dict'])
         else:
@@ -50,8 +53,7 @@ def load_generator():
 
     return model
 
-
-# Image preprocessing
+# === Image transformation ===
 transform = transforms.Compose([
     transforms.Resize((256, 256)),
     transforms.ToTensor()
@@ -61,7 +63,8 @@ def tensor_to_pil(tensor_img):
     tensor_img = tensor_img.squeeze(0).detach().cpu().clamp(0, 1)
     return transforms.ToPILImage()(tensor_img)
 
-# UI
+# === Streamlit App UI ===
+st.set_page_config(page_title="Satellite to Roadmap", layout="centered")
 st.title("🛰️ Satellite to Roadmap Generator")
 
 uploaded_file = st.file_uploader("📤 Upload a satellite image (side-by-side)", type=["jpg", "jpeg", "png"])
@@ -71,21 +74,22 @@ if uploaded_file:
         image = Image.open(uploaded_file).convert("RGB")
         st.image(image, caption="📸 Uploaded Image", use_container_width=True)
 
-        # Split left half
+        # Step 1: Crop left half as satellite input
         w, h = image.size
         satellite = image.crop((0, 0, w // 2, h))
 
         st.subheader("🧭 Satellite Input (Left Half)")
         st.image(satellite, use_container_width=True)
 
+        # Step 2: Preprocess
         input_tensor = transform(satellite).unsqueeze(0)
 
-        generator = load_generator()
-
-        with torch.no_grad():
-            output = generator(input_tensor)
-
-        roadmap = tensor_to_pil(output)
+        # Step 3: Generate
+        with st.spinner("🔧 Loading model & generating roadmap..."):
+            generator = load_generator()
+            with torch.no_grad():
+                output = generator(input_tensor)
+            roadmap = tensor_to_pil(output)
 
         st.subheader("🗺️ Predicted Roadmap (Right Output)")
         st.image(roadmap, use_container_width=True)
