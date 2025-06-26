@@ -13,11 +13,11 @@ class ResnetBlock(nn.Module):
         conv_block = [
             nn.ReflectionPad2d(1),
             nn.Conv2d(dim, dim, kernel_size=3),
-            nn.InstanceNorm2d(dim),
+            nn.InstanceNorm2d(dim, affine=True, track_running_stats=False),
             nn.ReLU(True),
             nn.ReflectionPad2d(1),
             nn.Conv2d(dim, dim, kernel_size=3),
-            nn.InstanceNorm2d(dim)
+            nn.InstanceNorm2d(dim, affine=True, track_running_stats=False)
         ]
         self.conv_block = nn.Sequential(*conv_block)
 
@@ -31,7 +31,7 @@ class ResnetGenerator(nn.Module):
         model = [
             nn.ReflectionPad2d(3),
             nn.Conv2d(input_nc, ngf, kernel_size=7),
-            nn.InstanceNorm2d(ngf),
+            nn.InstanceNorm2d(ngf, affine=True, track_running_stats=False),
             nn.ReLU(True)
         ]
 
@@ -40,7 +40,7 @@ class ResnetGenerator(nn.Module):
             mult = 2 ** i
             model += [
                 nn.Conv2d(ngf * mult, ngf * mult * 2, kernel_size=3, stride=2, padding=1),
-                nn.InstanceNorm2d(ngf * mult * 2),
+                nn.InstanceNorm2d(ngf * mult * 2, affine=True, track_running_stats=False),
                 nn.ReLU(True)
             ]
 
@@ -54,7 +54,7 @@ class ResnetGenerator(nn.Module):
                 nn.ConvTranspose2d(ngf * mult, int(ngf * mult / 2),
                                    kernel_size=3, stride=2,
                                    padding=1, output_padding=1),
-                nn.InstanceNorm2d(int(ngf * mult / 2)),
+                nn.InstanceNorm2d(int(ngf * mult / 2), affine=True, track_running_stats=False),
                 nn.ReLU(True)
             ]
 
