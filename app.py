@@ -2,6 +2,7 @@ import streamlit as st
 import torch
 from torchvision import transforms
 from PIL import Image
+import networks  # Needed to define the generator
 
 from cycle_gan_model import CycleGANModel
 
@@ -32,7 +33,12 @@ class InferenceOptions:
 def load_model():
     opt = InferenceOptions()
     model = CycleGANModel(opt)
-    model.setup(opt)
+
+    # Instead of model.setup(opt), define netG_A manually
+    model.netG_A = networks.define_G(
+        opt.input_nc, opt.output_nc, opt.ngf, opt.netG, opt.norm,
+        not opt.no_dropout, opt.init_type, opt.init_gain, opt.gpu_ids
+    )
 
     state_dict = torch.load("latest_net_G.pth", map_location="cpu")
     model.netG_A.load_state_dict(state_dict)
